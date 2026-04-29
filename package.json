@@ -15,15 +15,18 @@
   "packageManager": "pnpm@10.33.2",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/node": "^25.6.0",
     "eslint": "^10.2.1",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-simple-import-sort": "12.1.1",
     "globals": "^17.5.0",
-    "js@9.39.2": "link:eslint/js@9.39.2",
-    "node@24": "link:types/node@24",
     "prettier": "3.8.1",
     "tsx": "4.21.0",
     "typescript": "5.9.3",
     "typescript-eslint": "^8.59.1"
+  },
+  "dependencies": {
+    "dotenv": "17.3.1",
+    "fastify": "5.7.4"
   }
 }
