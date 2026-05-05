@@ -19,7 +19,7 @@ alwaysApply: true
 - Use sempre `fastify-type-provider-zod` para schemas de request e response.
 - Use sempre Zod v4. Nunca use Zod v3.
 - Crie os schemas de criação e atualização em `src/schemas/index.ts`.
-- Use `z.enum(WeekDay)` importado de `../generated/prisma/enums.js` para campos de dia da semana. Nunca use `z.string()` para representar `WeekDay`.
+- Use `z.enum(WeekDay)` importado de `../generated/prisma/enums.js` para campos de dia da semana em **todos os schemas** (body, params, query e response). Nunca use `z.string()` para representar `WeekDay`.
 - Use `ErrorSchema` de `src/schemas/index.ts` para tipar respostas de erro.
 - Rotas não contêm regras de negócio — apenas validação de dados e autenticação.
 - Para rotas protegidas, use `auth.api.getSession` de `src/lib/auth.ts`.
