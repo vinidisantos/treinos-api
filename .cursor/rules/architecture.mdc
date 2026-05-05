@@ -1,0 +1,206 @@
+---
+description: Convenções de arquitetura, rotas Fastify, use cases e Git
+alwaysApply: true
+---
+
+# Arquitetura
+
+## Git
+
+- Use sempre Conventional Commits: `feat: add start workout session endpoint`, `fix: workout plan validation`, `docs: update architecture rules`.
+- Nunca faça commit sem a permissão explícita do usuário. Sempre aguarde ser solicitado.
+
+---
+
+## Fastify: Rotas de API
+
+- Siga os princípios REST: `GET /workout-plans`, `GET /workout-plans/:id/days`.
+- Crie os arquivos de rotas em `src/routes/`.
+- Use sempre `fastify-type-provider-zod` para schemas de request e response.
+- Use sempre Zod v4. Nunca use Zod v3.
+- Crie os schemas de criação e atualização em `src/schemas/index.ts`.
+- Use `z.enum(WeekDay)` importado de `../generated/prisma/enums.js` para campos de dia da semana. Nunca use `z.string()` para representar `WeekDay`.
+- Use `ErrorSchema` de `src/schemas/index.ts` para tipar respostas de erro.
+- Rotas não contêm regras de negócio — apenas validação de dados e autenticação.
+- Para rotas protegidas, use `auth.api.getSession` de `src/lib/auth.ts`.
+- Toda rota deve instanciar e chamar um use case.
+- Toda rota deve tratar os erros lançados pelo use case (`try/catch`).
+- Inclua sempre `tags` e `summary` no schema para documentação Swagger/OpenAPI.
+
+```ts
+import { fromNodeHeaders } from "better-auth/node";
+import { FastifyInstance } from "fastify";
+import { ZodTypeProvider } from "fastify-type-provider-zod";
+
+import { NotFoundError } from "../errors/index.js";
+import { auth } from "../lib/auth.js";
+import { ErrorSchema, WorkoutPlanSchema } from "../schemas/index.js";
+import { CreateWorkoutPlan } from "../usecases/CreateWorkoutPlan.js";
+
+export const workoutPlanRoutes = async (app: FastifyInstance) => {
+  app.withTypeProvider<ZodTypeProvider>().route({
+    method: "POST",
+    url: "/",
+    schema: {
+      tags: ["Workout Plan"],
+      summary: "Create a workout plan",
+      body: WorkoutPlanSchema.omit({ id: true }),
+      response: {
+        201: WorkoutPlanSchema,
+        400: ErrorSchema,
+        401: ErrorSchema,
+        404: ErrorSchema,
+        500: ErrorSchema,
+      },
+    },
+    handler: async (request, reply) => {
+      try {
+        const session = await auth.api.getSession({
+          headers: fromNodeHeaders(request.headers),
+        });
+        if (!session) {
+          return reply.status(401).send({ error: "Unauthorized", code: "UNAUTHORIZED" });
+        }
+        const createWorkoutPlan = new CreateWorkoutPlan();
+        const result = await createWorkoutPlan.execute({
+          userId: session.user.id,
+          name: request.body.name,
+          workoutDays: request.body.workoutDays,
+        });
+        return reply.status(201).send(result);
+      } catch (error) {
+        app.log.error(error);
+        if (error instanceof NotFoundError) {
+          return reply.status(404).send({ error: error.message, code: "NOT_FOUND_ERROR" });
+        }
+        return reply.status(500).send({ error: "Internal server error", code: "INTERNAL_SERVER_ERROR" });
+      }
+    },
+  });
+};
+```
+
+---
+
+## Use Cases
+
+- Toda regra de negócio fica em um use case, dentro de `src/usecases/`.
+- Use cases são classes com um método `execute`.
+- Nomeie use cases com verbos no `PascalCase`: `CreateWorkoutPlan`, `StartWorkoutSession`.
+- O parâmetro de `execute` deve ser sempre um `InputDto` (interface definida no mesmo arquivo).
+- O retorno de `execute` deve ser sempre tipado com `OutputDto` (interface definida no mesmo arquivo). Nunca retorne o model do Prisma diretamente — mapeie o resultado para o `OutputDto`.
+- Use o Prisma diretamente dentro do use case. Não use repositories.
+- Nunca use `try/catch` dentro de use cases. O tratamento de erros é responsabilidade da rota.
+- Ao lançar erros, use sempre erros customizados de `src/errors/index.ts`. Se o erro necessário não existir, crie-o.
+
+```ts
+import { NotFoundError } from "../errors/index.js";
+import { WeekDay } from "../generated/prisma/enums.js";
+import { prisma } from "../lib/db.js";
+
+interface InputDto {
+  userId: string;
+  name: string;
+  workoutDays: Array<{
+    name: string;
+    weekDay: WeekDay;
+    isRest: boolean;
+    estimatedDurationInSeconds: number;
+    exercises: Array<{
+      order: number;
+      name: string;
+      sets: number;
+      reps: number;
+      restTimeInSeconds: number;
+    }>;
+  }>;
+}
+
+interface OutputDto {
+  id: string;
+  name: string;
+  workoutDays: Array<{
+    name: string;
+    weekDay: WeekDay;
+    isRest: boolean;
+    estimatedDurationInSeconds: number;
+    exercises: Array<{
+      order: number;
+      name: string;
+      sets: number;
+      reps: number;
+      restTimeInSeconds: number;
+    }>;
+  }>;
+}
+
+export class CreateWorkoutPlan {
+  async execute(dto: InputDto): Promise<OutputDto> {
+    const existingWorkoutPlan = await prisma.workoutPlan.findFirst({
+      where: { isActive: true },
+    });
+
+    return prisma.$transaction(async (tx) => {
+      if (existingWorkoutPlan) {
+        await tx.workoutPlan.update({
+          where: { id: existingWorkoutPlan.id },
+          data: { isActive: false },
+        });
+      }
+
+      const workoutPlan = await tx.workoutPlan.create({
+        data: {
+          id: crypto.randomUUID(),
+          name: dto.name,
+          userId: dto.userId,
+          isActive: true,
+          workoutDays: {
+            create: dto.workoutDays.map((day) => ({
+              name: day.name,
+              weekDay: day.weekDay,
+              isRest: day.isRest,
+              estimatedDurationInSeconds: day.estimatedDurationInSeconds,
+              exercises: {
+                create: day.exercises.map((exercise) => ({
+                  name: exercise.name,
+                  order: exercise.order,
+                  sets: exercise.sets,
+                  reps: exercise.reps,
+                  restTimeInSeconds: exercise.restTimeInSeconds,
+                })),
+              },
+            })),
+          },
+        },
+      });
+
+      const result = await tx.workoutPlan.findUnique({
+        where: { id: workoutPlan.id },
+        include: { workoutDays: { include: { exercises: true } } },
+      });
+
+      if (!result) {
+        throw new NotFoundError("Workout plan not found");
+      }
+
+      return {
+        id: result.id,
+        name: result.name,
+        workoutDays: result.workoutDays.map((day) => ({
+          name: day.name,
+          weekDay: day.weekDay,
+          isRest: day.isRest,
+          estimatedDurationInSeconds: day.estimatedDurationInSeconds,
+          exercises: day.exercises.map((exercise) => ({
+            order: exercise.order,
+            name: exercise.name,
+            sets: exercise.sets,
+            reps: exercise.reps,
+            restTimeInSeconds: exercise.restTimeInSeconds,
+          })),
+        })),
+      };
+    });
+  }
+}
+```

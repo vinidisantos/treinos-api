@@ -1,0 +1,95 @@
+---
+description: Convenções de TypeScript para o projeto treinos-api
+globs: **/*.ts
+alwaysApply: false
+---
+
+# Convenções de TypeScript
+
+## Princípios Básicos
+
+- Use TypeScript para todo o código. JavaScript não é permitido.
+- Nunca use `any`. Prefira `unknown` com narrowing ou tipos mais específicos.
+- Prefira named exports a default exports.
+
+```ts
+// ❌ RUIM
+export default function handler() {}
+
+// ✅ BOM
+export const handler = () => {}
+```
+
+## Funções
+
+- Use arrow functions. Evite funções convencionais salvo quando estritamente necessário (ex: generators, `this` binding).
+- Nomeie funções como verbos: `createUser`, `fetchWorkoutPlan`, `validateInput`.
+- Prefira early returns a ifs aninhados.
+
+```ts
+// ❌ RUIM
+const processUser = (user: User) => {
+  if (user) {
+    if (user.isActive) {
+      return doSomething(user);
+    }
+  }
+};
+
+// ✅ BOM
+const processUser = (user: User) => {
+  if (!user) return;
+  if (!user.isActive) return;
+  return doSomething(user);
+};
+```
+
+- Prefira higher-order functions a loops (`map`, `filter`, `reduce`, etc.).
+- Quando a função receber mais de 2 parâmetros, use um objeto.
+
+```ts
+// ❌ RUIM
+const createWorkoutDay = (name: string, weekDay: WeekDay, isRestDay: boolean) => {}
+
+// ✅ BOM
+const createWorkoutDay = (input: { name: string; weekDay: WeekDay; isRestDay: boolean }) => {}
+```
+
+## Nomenclatura
+
+- `interface` para tipagem de objetos. Use `type` apenas quando necessário (unions, intersections, utilitários).
+- Arquivos: `kebab-case` (ex: `auth-client.ts`, `workout-plan.ts`). Exceção: use cases usam `PascalCase` (ex: `CreateWorkoutPlan.ts`).
+- Classes: `PascalCase`.
+- Variáveis, funções e métodos: `camelCase`.
+
+## Datas
+
+- Use sempre `dayjs` para manipular e formatar datas. Não use `Date` diretamente para operações.
+
+```ts
+// ❌ RUIM
+const now = new Date().toISOString();
+
+// ✅ BOM
+import dayjs from 'dayjs';
+const now = dayjs().toISOString();
+```
+
+## Zod
+
+- Use sempre Zod v4.
+- Prefira validadores semânticos ao invés de `z.string()` genérico.
+
+```ts
+// ❌ RUIM
+z.object({ url: z.string(), createdAt: z.string() })
+
+// ✅ BOM
+z.object({ url: z.url(), createdAt: z.iso.datetime() })
+```
+
+- Validadores de data ISO obrigatórios:
+  - `z.iso.date()` → datas (`YYYY-MM-DD`)
+  - `z.iso.datetime()` → timestamps ISO
+  - `z.iso.time()` → horários
+  - `z.iso.duration()` → durações

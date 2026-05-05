@@ -1,0 +1,87 @@
+---
+description: Visão geral do projeto e contexto de arquitetura da treinos-api
+alwaysApply: true
+---
+
+# treinos-api — Bootcamp Treinos API
+
+API REST para gerenciamento de treinos, desenvolvida como parte do projeto FSC Bootcamp Treinos.
+
+## Stack
+
+| Camada | Tecnologia |
+|---|---|
+| Runtime | Node.js 24.x |
+| Linguagem | TypeScript (ESM — `"type": "module"`) |
+| Framework | Fastify 5.x |
+| ORM | Prisma 7.x |
+| Banco de dados | PostgreSQL 16 (Docker) |
+| Autenticação | Better Auth 1.x |
+| Validação | Zod 4.x + `fastify-type-provider-zod` |
+| Documentação da API | Scalar + `@fastify/swagger` |
+| Gerenciador de pacotes | pnpm |
+| Dev runner | `tsx --watch` |
+
+## Estrutura do Projeto
+
+```
+src/
+  index.ts          # Entry point do Fastify, registro de plugins e inicialização do servidor
+  routes/           # Handlers de rotas agrupados por domínio (ex: workout-plan.ts)
+  usecases/         # Classes de lógica de negócio com método execute(dto)
+  schemas/          # Schemas Zod compartilhados entre rotas e usecases
+  errors/           # Classes de erro customizadas (ex: NotFoundError)
+  lib/
+    db.ts           # Singleton do Prisma client
+    auth.ts         # Instância do Better Auth
+  generated/prisma/ # Client gerado pelo Prisma (não editar)
+prisma/
+  schema.prisma     # Schema do banco de dados
+docker-compose.yml  # Serviço PostgreSQL
+```
+
+## Modelos de Domínio
+
+- **User** — dono dos WorkoutPlans; possui Sessions e Accounts (Better Auth)
+- **WorkoutPlan** — pertence a um User; apenas um pode ter `isActive = true` por vez
+- **WorkoutDay** — pertence a um WorkoutPlan; tem um enum `WeekDay` e lista de exercícios
+- **WorkoutExercise** — pertence a um WorkoutDay; possui `sets`, `reps`, `restTimeInSeconds`
+- **WorkoutSession** — registra quando um WorkoutDay foi iniciado e concluído
+
+## Convenções
+
+- Todas as rotas usam `ZodTypeProvider` e declaram schemas completos de request/response
+- A lógica de negócio fica nos `usecases/` — as rotas tratam apenas de questões HTTP
+- Erros são capturados nos handlers: `NotFoundError` → 404, fallback → 500
+- Autenticação é verificada via `auth.api.getSession({ headers })` em cada rota protegida
+- O Prisma client é um singleton exportado de `src/lib/db.ts`
+- Imports usam extensão `.js` (resolução ESM)
+
+## MCPs
+- SEMPRE use Context7 para buscar documentações
+- SEMPRE use Serena para semantic code retrieval e editing tools.
+
+## Rodando Localmente
+
+```bash
+# Subir o banco de dados
+docker compose up -d
+
+# Banco de dados
+pnpm prisma generate        # Gera o Prisma client (também roda no postinstall)
+pnpm prisma migrate dev     # Executa migrations em desenvolvimento
+pnpm prisma studio          # Abre o Prisma Studio
+
+# Instalar dependências
+pnpm install
+
+# Rodar migrations
+pnpm prisma migrate dev
+
+# Iniciar servidor de desenvolvimento (porta 8080)
+pnpm dev
+```
+
+
+
+Documentação da API disponível em `http://localhost:8080/docs`
