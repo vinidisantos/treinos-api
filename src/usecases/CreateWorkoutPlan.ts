@@ -9,6 +9,7 @@ interface InputDto {
     name: string;
     weekDay: WeekDay;
     isRestDay: boolean;
+    coverImageUrl?: string;
     estimatedDurationInSeconds: number;
     exercices: Array<{
       order: number;
@@ -20,8 +21,39 @@ interface InputDto {
   }>;
 }
 
+export interface CreateWorkoutPlanOutputDto {
+  id: string;
+  name: string;
+  userId: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  workoutDays: Array<{
+    id: string;
+    name: string;
+    weekDay: WeekDay;
+    isRestDay: boolean;
+    coverImageUrl: string | null;
+    estimatedDurationInSeconds: number;
+    workoutPlanId: string;
+    createdAt: Date;
+    updatedAt: Date;
+    exercices: Array<{
+      id: string;
+      name: string;
+      order: number;
+      sets: number;
+      reps: number;
+      restTimeInSeconds: number;
+      workoutDayId: string;
+      createdAt: Date;
+      updatedAt: Date;
+    }>;
+  }>;
+}
+
 export class CreateWorkoutPlan {
-  async execute(dto: InputDto) {
+  async execute(dto: InputDto): Promise<CreateWorkoutPlanOutputDto> {
     const existingWorkoutPlan = await prisma.workoutPlan.findFirst({
       where: {
         isActive: true,
@@ -45,6 +77,7 @@ export class CreateWorkoutPlan {
               name: workoutDay.name,
               weekDay: workoutDay.weekDay,
               isRestDay: workoutDay.isRestDay,
+              coverImageUrl: workoutDay.coverImageUrl,
               estimatedDurationInSeconds: workoutDay.estimatedDurationInSeconds,
               exercices: {
                 create: workoutDay.exercices.map((exercice) => ({
