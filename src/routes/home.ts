@@ -15,9 +15,11 @@ export const homeRoutes = async (app: FastifyInstance) => {
     url: "/:date",
     schema: {
       tags: ["Home"],
-      summary: "Get home page data for a given date",
+      summary: "Get home page data",
       params: z.object({
-        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
+        date: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
       }),
       response: {
         200: z.object({
@@ -54,7 +56,9 @@ export const homeRoutes = async (app: FastifyInstance) => {
           headers: fromNodeHeaders(request.headers),
         });
         if (!session) {
-          return reply.status(401).send({ error: "Unauthorized", code: "UNAUTHORIZED" });
+          return reply
+            .status(401)
+            .send({ error: "Unauthorized", code: "UNAUTHORIZED" });
         }
 
         const getHome = new GetHome();
@@ -68,16 +72,24 @@ export const homeRoutes = async (app: FastifyInstance) => {
           todayWorkoutDay: result.todayWorkoutDay
             ? {
                 ...result.todayWorkoutDay,
-                weekDay: result.todayWorkoutDay.weekDay as typeof WeekDay[keyof typeof WeekDay],
+                weekDay: result.todayWorkoutDay
+                  .weekDay as (typeof WeekDay)[keyof typeof WeekDay],
               }
             : null,
         });
       } catch (error) {
         app.log.error(error);
         if (error instanceof NotFoundError) {
-          return reply.status(404).send({ error: error.message, code: "NOT_FOUND" });
+          return reply
+            .status(404)
+            .send({ error: error.message, code: "NOT_FOUND" });
         }
-        return reply.status(500).send({ error: "Internal server error", code: "INTERNAL_SERVER_ERROR" });
+        return reply
+          .status(500)
+          .send({
+            error: "Internal server error",
+            code: "INTERNAL_SERVER_ERROR",
+          });
       }
     },
   });
