@@ -1,7 +1,6 @@
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc.js";
 
-import { NotFoundError } from "../errors/index.js";
 import { WeekDay } from "../generated/prisma/enums.js";
 import { prisma } from "../lib/db.js";
 
@@ -77,13 +76,9 @@ export class GetHome {
       },
     });
 
-    if (!activeWorkoutPlan) {
-      throw new NotFoundError("No active workout plan found");
-    }
-
     const todayJsDay = date.day();
     const todayWorkoutDayData =
-      activeWorkoutPlan.workoutDays.find(
+      activeWorkoutPlan?.workoutDays.find(
         (day) => WEEK_DAY_TO_JS_DAY[day.weekDay] === todayJsDay,
       ) ?? null;
 
@@ -96,7 +91,7 @@ export class GetHome {
       };
     }
 
-    for (const workoutDay of activeWorkoutPlan.workoutDays) {
+    for (const workoutDay of activeWorkoutPlan?.workoutDays ?? []) {
       for (const session of workoutDay.sessions) {
         const dateKey = dayjs.utc(session.startedAt).format("YYYY-MM-DD");
         if (consistencyByDay[dateKey] !== undefined) {
@@ -130,7 +125,9 @@ export class GetHome {
     }
 
     const planDaysByJsDay = new Set<number>(
-      activeWorkoutPlan.workoutDays.map((d) => WEEK_DAY_TO_JS_DAY[d.weekDay]),
+      activeWorkoutPlan?.workoutDays.map(
+        (d) => WEEK_DAY_TO_JS_DAY[d.weekDay],
+      ) ?? [],
     );
 
     let streak = 0;
@@ -150,7 +147,7 @@ export class GetHome {
     }
 
     return {
-      activeWorkoutPlanId: activeWorkoutPlan.id,
+      activeWorkoutPlanId: activeWorkoutPlan?.id ?? "",
       todayWorkoutDay: todayWorkoutDayData
         ? {
             workoutPlanId: todayWorkoutDayData.workoutPlanId,
