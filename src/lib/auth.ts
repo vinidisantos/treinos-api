@@ -22,6 +22,7 @@ export const auth = betterAuth({
   advanced: {
     crossSubDomainCookies: {
       enabled: true,
+      domains: env.NODE_ENV === "production" ? ".maiapets.com.br" : undefined,
     },
   },
 });
